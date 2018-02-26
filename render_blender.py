@@ -52,6 +52,7 @@ map.use_min = True
 map.min = [0]
 map.use_max = True
 map.max = [255]
+print(rl.outputs.keys())
 links.new(rl.outputs['Z'], map.inputs[0])
 
 invert = tree.nodes.new(type="CompositorNodeInvert")
