@@ -52,7 +52,7 @@ map.use_min = True
 map.min = [0]
 map.use_max = True
 map.max = [255]
-print(rl.outputs.keys())
+# print(rl.outputs.keys())
 links.new(rl.outputs['Z'], map.inputs[0])
 
 invert = tree.nodes.new(type="CompositorNodeInvert")
@@ -121,7 +121,6 @@ lamp2.energy = 0.015
 bpy.data.objects['Sun'].rotation_euler = bpy.data.objects['Lamp'].rotation_euler
 bpy.data.objects['Sun'].rotation_euler[0] += 180
 
-
 def parent_obj_to_camera(b_camera):
     origin = (0, 0, 0)
     b_empty = bpy.data.objects.new("Empty", None)
@@ -135,6 +134,10 @@ def parent_obj_to_camera(b_camera):
 
 
 scene = bpy.context.scene
+# Scale obejct 
+for obj in scene.objects:
+    if("Example" in obj.name):
+        obj.scale *=0.05
 scene.render.resolution_x = 600
 scene.render.resolution_y = 600
 scene.render.resolution_percentage = 100
@@ -163,9 +166,9 @@ for i in range(0, args.views):
     print("Rotation {}, {}".format((stepsize * i), radians(stepsize * i)))
 
     scene.render.filepath = fp + '_r_{0:03d}'.format(int(i * stepsize))
-    depthFileOutput.file_slots[0].path = scene.render.filepath + "_depth.png"
+    # depthFileOutput.file_slots[0].path = scene.render.filepath + "_depth.png"
     normalFileOutput.file_slots[0].path = scene.render.filepath + "_normal.png"
-    albedoFileOutput.file_slots[0].path = scene.render.filepath + "_albedo.png"
+    # albedoFileOutput.file_slots[0].path = scene.render.filepath + "_albedo.png"
 
     bpy.ops.render.render(write_still=True)  # render still
 
