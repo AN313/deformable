@@ -146,5 +146,5 @@ def csg_op(alpha=0.2):
     save_shape(shape_2)
 
 
-if __name__ == '__main__':
-    csg_op()
+# if __name__ == '__main__':
+#     csg_op()

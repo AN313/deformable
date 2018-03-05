@@ -5,7 +5,173 @@
 # blender --background --python mytest.py -- --views 10 /path/to/my.obj
 #
 
-import argparse, sys, os
+
+##################################
+import bpy
+import bmesh
+
+import os
+import json
+import random
+import numpy as np
+from uuid import uuid4
+from math import sin, cos, pi
+
+CUR_DIR = os.getcwd()
+SAVE_DIR = os.path.join(CUR_DIR, "model_json")
+if not os.path.exists(SAVE_DIR):
+    os.mkdir(SAVE_DIR)
+
+bmat = bpy.data.materials
+bobj = bpy.data.objects
+bscene = bpy.context.scene
+
+C = range(-5,5)
+R = np.arange(0.5, 1., 0.1)
+H = np.arange(1., 2., 0.2)
+ROT = range(0,360,30)
+
+TYPE = ["sphere", "cube", "cylinder"]
+NAME = ["Basic_Sphere", "Basic_Cube", "Basic_Cylinder"]
+
+COUNT = 0
+
+def sph2cart(s):
+    # Assuming sphe_cord is [r, phi, theta]
+    cord = (s[0]*sin(s[1])*cos(s[2]),
+            s[0]*sin(s[1])*sin(s[2]),
+            s[0]*cos(s[1]))
+    return cord
+def rand_phi():
+    return random.uniform(0, pi)
+def rand_theta():
+    return random.uniform(0, 2*pi)
+
+def gen_center():
+    """
+        Generate a random 3d vector for random centering the object
+    """
+    v = [random.choice(C),random.choice(C),random.choice(C)]
+    return v
+
+def gen_rot():
+    r = [random.choice(ROT), random.choice(ROT), random.choice(ROT)]
+    return r
+
+def gen_scale():
+    c = random.choice(R)
+    s = (c, c, c)
+    return s
+
+def gen_color():
+    c = (random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1))
+    return c
+
+def gen_mat(name, color):
+    mat = bmat.new(name=name)
+    mat.diffuse_color = color
+    return mat
+
+def gen_shape(type, r=None, h=None):
+    global COUNT
+    if not r:
+        r = random.choice(R)
+    if type=="cylinder" and not h:
+        h = random.choice(H)
+    # generate shape object
+    if type == "sphere":
+        mesh = bpy.data.meshes.new(type)
+        shape = bpy.data.objects.new(type, mesh)
+    elif type == "cube":
+        mesh = bpy.data.meshes.new(type)
+        shape = bpy.data.objects.new(type, mesh)
+    elif type == "cylinder":
+        mesh = bpy.data.meshes.new(type)
+        shape = bpy.data.objects.new(type, mesh)
+    else:
+        raise ValueError
+    bscene.objects.link(shape)
+    bscene.objects.active = shape
+    shape.select = True
+    # fill sphere mesh to shape
+    bm = bmesh.new()
+    if type == "sphere":
+        bmesh.ops.create_uvsphere(bm,
+                                  u_segments=32,
+                                  v_segments=16,
+                                  diameter=r*2)
+    elif type == "cube":
+        bmesh.ops.create_cube(bm, size=r*2)
+    elif type == "cylinder":
+        bmesh.ops.create_cone(bm,
+                              cap_ends=True,
+                              cap_tris=False,
+                              segments=32,
+                              diameter1=r*2,
+                              diameter2=r*2,
+                              depth=h)
+    bm.to_mesh(mesh)
+    bm.free()
+    # fill solid material
+    clr = gen_color()
+    mat = gen_mat("material"+str(COUNT), clr)
+    COUNT += 1
+    shape.data.materials.append(mat)
+    return {'id':COUNT,
+            'shape':shape,
+            'type':type,
+            'color':clr,
+            'r':r,
+            'h':h,
+            'T':[],
+            'R':[]}
+
+def save_combo(s1, s2):
+    part1 = s1
+    part2 = s2
+    part1.pop('shape')
+    part2.pop('shape')
+    info = {'shape_1':part1, 'shape_2':part2}
+    with open(os.path.join(SAVE_DIR, str(uuid4())+'json'), 'w') as jfile:
+        json.dump(info, jfile)
+
+def translate(shape, vec3):
+    shape['T'].append(vec3)
+    shape['shape'].location.x += vec3[0]
+    shape['shape'].location.y += vec3[1]
+    shape['shape'].location.z += vec3[2]
+
+def rotate(shape, vec3):
+    shape['R'].append(vec3)
+    shape['shape'].rotation_euler.x = vec3[0]
+    shape['shape'].rotation_euler.y = vec3[0]
+    shape['shape'].rotation_euler.z = vec3[0]
+
+def csg_op(alpha=0.2):
+    shape_1 = gen_shape(random.choice(TYPE))
+    shape_2 = gen_shape(random.choice(TYPE))
+    bpy.ops.object.shade_smooth()
+    if shape_1['type'] == "cube" or shape_2['type'] == "cube":
+        alpha = 0.5
+    min_r = abs(shape_1['r'] - shape_2['r'])*(1+alpha)
+    max_r = shape_1['r'] + shape_1['r']
+    d = random.uniform(min_r, max_r)
+    offset = sph2cart([d, rand_phi(), rand_theta()])
+    print(offset)
+    print(shape_1['r'])
+    print(shape_2['r'])
+    translate(shape_2, offset)
+    rotate(shape_1, gen_rot())
+    rotate(shape_2, gen_rot())
+    save_combo(shape_1, shape_2)
+    return shape_1['type'], shape_2['type']
+
+
+
+
+#######################################################
+
+import argparse, sys, os, random
 
 parser = argparse.ArgumentParser(description='Renders given obj file by rotation a camera around it.')
 parser.add_argument('--views', type=int, default=30,
@@ -88,7 +254,15 @@ links.new(rl.outputs['Color'], albedoFileOutput.inputs[0])
 bpy.data.objects['Cube'].select = True
 bpy.ops.object.delete()
 
-bpy.ops.import_mesh.stl(filepath=args.obj)
+
+# import mesh
+# bpy.ops.import_mesh.stl(filepath=args.obj)
+
+##############################################
+# bpy.ops.import_scene.obj(filepath=args.obj)
+##############################################
+
+
 for object in bpy.context.scene.objects:
     if object.name in ['Camera', 'Lamp']:
         continue
@@ -134,10 +308,7 @@ def parent_obj_to_camera(b_camera):
 
 
 scene = bpy.context.scene
-# Scale obejct 
-for obj in scene.objects:
-    if("Example" in obj.name):
-        obj.scale *=0.05
+
 scene.render.resolution_x = 600
 scene.render.resolution_y = 600
 scene.render.resolution_percentage = 100
@@ -154,22 +325,40 @@ model_identifier = os.path.split(os.path.split(args.obj)[0])[1]
 fp = os.path.join(args.output_folder, model_identifier, model_identifier)
 scene.render.image_settings.file_format = 'PNG'  # set output format to .png
 
+
 from math import radians
 
-stepsize = 360.0 / args.views
-rotation_mode = 'XYZ'
-
 for output_node in [depthFileOutput, normalFileOutput, albedoFileOutput]:
-    output_node.base_path = ''
+        output_node.base_path = ''
 
-for i in range(0, args.views):
-    print("Rotation {}, {}".format((stepsize * i), radians(stepsize * i)))
 
-    scene.render.filepath = fp + '_r_{0:03d}'.format(int(i * stepsize))
-    # depthFileOutput.file_slots[0].path = scene.render.filepath + "_depth.png"
-    normalFileOutput.file_slots[0].path = scene.render.filepath + "_normal.png"
-    # albedoFileOutput.file_slots[0].path = scene.render.filepath + "_albedo.png"
+for j in range(0,3):
+    
+    obj1, obj2 = csg_op()
 
-    bpy.ops.render.render(write_still=True)  # render still
+    stepsize = 360.0 / args.views
+    rotation_mode = 'XYZ'
 
-    b_empty.rotation_euler[2] += radians(stepsize)
+    
+
+    for i in range(0, args.views):light
+        print("Rotation {}, {}".format((stepsize * i), radians(stepsize * i)))
+
+        scene.render.filepath = fp + str(j)+'_r_{0:03d}'.format(int(i * stepsize))
+        # depthFileOutput.file_slots[0].path = scene.render.filepath + "_depth.png"
+        # normalFileOutput.file_slots[0].path = scene.render.filepath + "_normal.png"
+        # albedoFileOutput.file_slots[0].path = scene.render.filepath + "_albedo.png"
+        print(cam.location )
+
+        bpy.ops.render.render(write_still=True)  # render still
+
+        b_empty.rotation_euler[2] += radians(stepsize)
+
+    # delete objects
+    for index, obj in enumerate(bpy.data.objects):
+        if ('sphere' in obj.name or 'cude' in obj.name or 'cylinder' in obj.name):
+            obj.select = True
+
+            
+    bpy.ops.object.delete()
+
