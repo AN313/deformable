@@ -53,9 +53,9 @@ def gen_color():
     c = (random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1))
     return c
 
-def gen_mat(name):
+def gen_mat(name, color):
     mat = bmat.new(name=name)
-    mat.diffuse_color = gen_color()
+    mat.diffuse_color = color
     return mat
 
 def gen_shape(type, r=None, h=None):
@@ -99,18 +99,22 @@ def gen_shape(type, r=None, h=None):
     bm.to_mesh(mesh)
     bm.free()
     # fill solid material
-    mat = gen_mat("material"+str(COUNT))
+    clr = gen_color()
+    mat = gen_mat("material"+str(COUNT), clr)
     COUNT += 1
     shape.data.materials.append(mat)
     return {'id':COUNT,
             'shape':shape,
             'type':type,
+            'color':clr,
             'r':r,
             'h':h,
             'T':[],
             'R':[]}
 
 def save_shape(shape):
+    info = shape
+    info.pop('shape')
     with open(os.path.join(SAVE_DIR, shape['id']+'json'), 'w') as jfile:
         json.dump(shape, jfile)
 
@@ -144,7 +148,6 @@ def csg_op(alpha=0.2):
     rotate(shape_2, gen_rot())
     save_shape(shape_1)
     save_shape(shape_2)
-
 
 if __name__ == '__main__':
     csg_op()
