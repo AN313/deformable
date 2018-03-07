@@ -2,20 +2,59 @@
 # Also produces depth map at the same time.
 #
 # Example:
-# blender --background --python mytest.py -- --views 10 /path/to/my.obj
+# blender --background --python render_blender.py -- --views 10 --output_folder ./tmp (/path/to/my.obj)
 #
 
 
-##################################
+
+
+
 import bpy
 import bmesh
 
+import argparse, sys
 import os
 import json
 import random
 import numpy as np
 from uuid import uuid4
-from math import sin, cos, pi
+from math import sin, cos, pi, radians
+
+
+
+
+#######################################################
+# Take input arguments
+#######################################################
+
+parser = argparse.ArgumentParser(description='Renders given obj file by rotation a camera around it.')
+
+parser.add_argument('--views', type=int, default=30,
+                    help='number of views to be rendered')
+
+# parser.add_argument('obj', type=str,
+#                     help='Path to the obj file to be rendered.')
+
+
+parser.add_argument('--output_folder', type=str, default='/tmp',
+                    help='The path the output will be dumped to.')
+parser.add_argument('--scale', type=float, default=1,
+                    help='Scaling factor applied to model. Depends on size of mesh.')
+parser.add_argument('--remove_doubles', type=bool, default=True,
+                    help='Remove double vertices to improve mesh quality.')
+parser.add_argument('--edge_split', type=bool, default=True,
+                    help='Adds edge split filter.')
+parser.add_argument('--depth_scale', type=float, default=1.4,
+                    help='Scaling that is applied to depth. Depends on size of mesh. Try out various values until you get a good result.')
+
+argv = sys.argv[sys.argv.index("--") + 1:]
+args = parser.parse_args(argv)
+
+
+
+#######################################################
+# Create random CSG 
+#######################################################
 
 CUR_DIR = os.getcwd()
 SAVE_DIR = os.path.join(CUR_DIR, "model_json")
@@ -166,33 +205,9 @@ def csg_op(alpha=0.2):
     save_combo(shape_1, shape_2)
     return shape_1['type'], shape_2['type']
 
-
-
-
 #######################################################
-
-import argparse, sys, os, random
-
-parser = argparse.ArgumentParser(description='Renders given obj file by rotation a camera around it.')
-parser.add_argument('--views', type=int, default=30,
-                    help='number of views to be rendered')
-parser.add_argument('obj', type=str,
-                    help='Path to the obj file to be rendered.')
-parser.add_argument('--output_folder', type=str, default='/tmp',
-                    help='The path the output will be dumped to.')
-parser.add_argument('--scale', type=float, default=1,
-                    help='Scaling factor applied to model. Depends on size of mesh.')
-parser.add_argument('--remove_doubles', type=bool, default=True,
-                    help='Remove double vertices to improve mesh quality.')
-parser.add_argument('--edge_split', type=bool, default=True,
-                    help='Adds edge split filter.')
-parser.add_argument('--depth_scale', type=float, default=1.4,
-                    help='Scaling that is applied to depth. Depends on size of mesh. Try out various values until you get a good result.')
-
-argv = sys.argv[sys.argv.index("--") + 1:]
-args = parser.parse_args(argv)
-
-import bpy
+# Set up rendering environment
+#######################################################
 
 # Set up rendering of depth map:
 bpy.context.scene.use_nodes = True
@@ -255,10 +270,8 @@ bpy.data.objects['Cube'].select = True
 bpy.ops.object.delete()
 
 
-# import mesh
-# bpy.ops.import_mesh.stl(filepath=args.obj)
-
 ##############################################
+# bpy.ops.import_mesh.stl(filepath=args.obj)
 # bpy.ops.import_scene.obj(filepath=args.obj)
 ##############################################
 
@@ -291,7 +304,7 @@ bpy.ops.object.lamp_add(type='SUN')
 lamp2 = bpy.data.lamps['Sun']
 lamp2.shadow_method = 'NOSHADOW'
 lamp2.use_specular = False
-lamp2.energy = 0.015
+lamp2.energy = 0.15
 bpy.data.objects['Sun'].rotation_euler = bpy.data.objects['Lamp'].rotation_euler
 bpy.data.objects['Sun'].rotation_euler[0] += 180
 
@@ -321,40 +334,34 @@ cam_constraint.up_axis = 'UP_Y'
 b_empty = parent_obj_to_camera(cam)
 cam_constraint.target = b_empty
 
-model_identifier = os.path.split(os.path.split(args.obj)[0])[1]
-fp = os.path.join(args.output_folder, model_identifier, model_identifier)
+# model_identifier = os.path.split(os.path.split(args.obj)[0])[1]
+# fp = os.path.join(args.output_folder, model_identifier, model_identifier)
+fp = os.path.join(args.output_folder)
+
 scene.render.image_settings.file_format = 'PNG'  # set output format to .png
 
-
-from math import radians
 
 for output_node in [depthFileOutput, normalFileOutput, albedoFileOutput]:
         output_node.base_path = ''
 
-
-for j in range(0,3):
-    
+for j in range(0,1):    
     obj1, obj2 = csg_op()
 
     stepsize = 360.0 / args.views
     rotation_mode = 'XYZ'
-
-    
-
-    for i in range(0, args.views):light
-        print("Rotation {}, {}".format((stepsize * i), radians(stepsize * i)))
-
-        scene.render.filepath = fp + str(j)+'_r_{0:03d}'.format(int(i * stepsize))
+    for i in range(0, args.views):
+        print("================")
+        print(fp)
+        print("================")
+        scene.render.filepath = fp + "/"+ str(j)+'_r_{0:03d}'.format(int(i * stepsize))
         # depthFileOutput.file_slots[0].path = scene.render.filepath + "_depth.png"
         # normalFileOutput.file_slots[0].path = scene.render.filepath + "_normal.png"
         # albedoFileOutput.file_slots[0].path = scene.render.filepath + "_albedo.png"
-        print(cam.location )
-
+        # print(cam.location )
         bpy.ops.render.render(write_still=True)  # render still
-
         b_empty.rotation_euler[2] += radians(stepsize)
 
-    # delete objects
+    # delete objects to start new iteration
     for index, obj in enumerate(bpy.data.objects):
         if ('sphere' in obj.name or 'cude' in obj.name or 'cylinder' in obj.name):
             obj.select = True
