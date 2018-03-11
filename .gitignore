@@ -1,3 +1,5 @@
-.vscode/*
-data/*
-model_json/*
+.vscode/**
+data/**
+model_json/**
+tmp/**
+*.stl
