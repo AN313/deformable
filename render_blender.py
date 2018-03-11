@@ -147,7 +147,7 @@ def rotate(shape, vec3):
     shape['shape'].rotation_euler.y = vec3[0]
     shape['shape'].rotation_euler.z = vec3[0]
 
-def csg_op(alpha=0.2):
+def csg_op(alpha=0.4):
     shape_1 = gen_shape(random.choice(TYPE))
     shape_2 = gen_shape(random.choice(TYPE))
     bpy.ops.object.shade_smooth()
@@ -281,19 +281,21 @@ for object in bpy.context.scene.objects:
 
 # Make light just directional, disable shadows.
 lamp = bpy.data.lamps['Lamp']
-lamp.type = 'SUN'
+# lamp.type = 'HEMI'
 lamp.shadow_method = 'NOSHADOW'
 # Possibly disable specular shading:
 lamp.use_specular = False
 
 # Add another light source so stuff facing away from light is not completely dark
-bpy.ops.object.lamp_add(type='SUN')
-lamp2 = bpy.data.lamps['Sun']
-lamp2.shadow_method = 'NOSHADOW'
+bpy.ops.object.lamp_add(type='POINT')
+lamp2 = bpy.data.lamps['Point']
+# lamp2.shadow_method = 'NOSHADOW'
 lamp2.use_specular = False
-lamp2.energy = 0.015
-bpy.data.objects['Sun'].rotation_euler = bpy.data.objects['Lamp'].rotation_euler
-bpy.data.objects['Sun'].rotation_euler[0] += 180
+lamp2.energy = 1.0
+bpy.data.objects['Lamp'].location = (10, 10, 0)
+bpy.data.objects['Point'].location = (-10, -10, 0)
+
+bpy.data.worlds["World"].light_settings.use_environment_light = True
 
 def parent_obj_to_camera(b_camera):
     origin = (0, 0, 0)
@@ -332,7 +334,7 @@ for output_node in [depthFileOutput, normalFileOutput, albedoFileOutput]:
         output_node.base_path = ''
 
 
-for j in range(0,3):
+for j in range(0,500):
     
     obj1, obj2 = csg_op()
 
@@ -341,7 +343,7 @@ for j in range(0,3):
 
     
 
-    for i in range(0, args.views):light
+    for i in range(0, args.views):
         print("Rotation {}, {}".format((stepsize * i), radians(stepsize * i)))
 
         scene.render.filepath = fp + str(j)+'_r_{0:03d}'.format(int(i * stepsize))
