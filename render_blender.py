@@ -6,9 +6,6 @@
 #
 
 
-
-
-
 import bpy
 import bmesh
 
@@ -18,9 +15,7 @@ import json
 import random
 import numpy as np
 from uuid import uuid4
-from math import sin, cos, pi, radians
-
-
+from math import sin, cos, pi, radians, sqrt
 
 
 #######################################################
@@ -29,13 +24,10 @@ from math import sin, cos, pi, radians
 
 parser = argparse.ArgumentParser(description='Renders given obj file by rotation a camera around it.')
 
-parser.add_argument('--views', type=int, default=30,
+parser.add_argument('--views', type=int, default=8,
                     help='number of views to be rendered')
-
-# parser.add_argument('obj', type=str,
-#                     help='Path to the obj file to be rendered.')
-
-
+parser.add_argument('--circles', type=int, default=3,
+                    help="number of view circles")
 parser.add_argument('--output_folder', type=str, default='/tmp',
                     help='The path the output will be dumped to.')
 parser.add_argument('--scale', type=float, default=1,
@@ -44,13 +36,13 @@ parser.add_argument('--remove_doubles', type=bool, default=True,
                     help='Remove double vertices to improve mesh quality.')
 parser.add_argument('--edge_split', type=bool, default=True,
                     help='Adds edge split filter.')
-parser.add_argument('--depth_scale', type=float, default=1.4,
+parser.add_argument('--depth_scale', type=float, default=3.5,
                     help='Scaling that is applied to depth. Depends on size of mesh. Try out various values until you get a good result.')
 
 argv = sys.argv[sys.argv.index("--") + 1:]
 args = parser.parse_args(argv)
 
-
+CAM_LOC = [(0,10/2,-10*sqrt(3)/2), (0,10,0), (0,10/2,10*sqrt(3)/2)]
 
 #######################################################
 # Create random CSG 
@@ -326,20 +318,18 @@ def parent_obj_to_camera(b_camera):
 
 scene = bpy.context.scene
 
-scene.render.resolution_x = 600
-scene.render.resolution_y = 600
+scene.render.resolution_x = 244
+scene.render.resolution_y = 244
 scene.render.resolution_percentage = 100
 scene.render.alpha_mode = 'TRANSPARENT'
 cam = scene.objects['Camera']
-cam.location = (0, 10, 6)
+cam.location = (0, 10, -10)
 cam_constraint = cam.constraints.new(type='TRACK_TO')
 cam_constraint.track_axis = 'TRACK_NEGATIVE_Z'
 cam_constraint.up_axis = 'UP_Y'
 b_empty = parent_obj_to_camera(cam)
 cam_constraint.target = b_empty
 
-# model_identifier = os.path.split(os.path.split(args.obj)[0])[1]
-# fp = os.path.join(args.output_folder, model_identifier, model_identifier)
 fp = os.path.join(args.output_folder)
 
 scene.render.image_settings.file_format = 'PNG'  # set output format to .png
@@ -349,22 +339,20 @@ for output_node in [depthFileOutput, normalFileOutput, albedoFileOutput]:
         output_node.base_path = ''
 
 
-for j in range(0,500):
+for j in range(1):
     obj1, obj2 = csg_op()
 
     stepsize = 360.0 / args.views
     rotation_mode = 'XYZ'
-    for i in range(0, args.views):
-        print("================")
-        print(fp)
-        print("================")
-        scene.render.filepath = fp + "/"+ str(j)+'_r_{0:03d}'.format(int(i * stepsize))
-        # depthFileOutput.file_slots[0].path = scene.render.filepath + "_depth.png"
-        # normalFileOutput.file_slots[0].path = scene.render.filepath + "_normal.png"
-        # albedoFileOutput.file_slots[0].path = scene.render.filepath + "_albedo.png"
-        # print(cam.location )
-        bpy.ops.render.render(write_still=True)  # render still
-        b_empty.rotation_euler[2] += radians(stepsize)
+    for k in range(args.circles):
+        cam.location = CAM_LOC[k]
+        for i in range(args.views):
+            print("================")
+            print(fp)
+            print("================")
+            scene.render.filepath = fp + "/"+ str(j)+'_'+str(k)+'_r_{0:03d}'.format(int(i * stepsize))
+            bpy.ops.render.render(write_still=True)  # render still
+            b_empty.rotation_euler[2] += radians(stepsize)
 
     # delete objects to start new iteration
     for index, obj in enumerate(bpy.data.objects):
