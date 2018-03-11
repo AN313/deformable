@@ -304,7 +304,6 @@ bpy.ops.object.lamp_add(type='POINT')
 lamp2 = bpy.data.lamps['Point']
 # lamp2.shadow_method = 'NOSHADOW'
 lamp2.use_specular = False
-<<<<<<< HEAD
 lamp2.energy = 1.0
 bpy.data.objects['Lamp'].location = (10, 10, 0)
 bpy.data.objects['Point'].location = (-10, -10, 0)
