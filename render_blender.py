@@ -15,7 +15,7 @@ import json
 import random
 import numpy as np
 from uuid import uuid4
-from math import sin, cos, pi, radians, sqrt
+from math import sin, cos, pi, radians, sqrt, radians
 
 
 #######################################################
@@ -59,10 +59,13 @@ bscene = bpy.context.scene
 
 ##### RNN Input seqence #####
 
-C = range(-5,5)
+C = range(-5, 5)
 R = np.arange(0.5, 1., 0.1)
 H = np.arange(1., 2., 0.2)
-ROT = range(0,360,60)
+ROT = range(0, 360, 60)
+PHI = range(0, 90, 30)
+THETA = range(0, 180, 30)
+
 
 TYPE = ["sphere", "cube", "cylinder"]
 NAME = ["Basic_Sphere", "Basic_Cube", "Basic_Cylinder"]
@@ -75,10 +78,12 @@ def sph2cart(s):
             s[0]*sin(s[1])*sin(s[2]),
             s[0]*cos(s[1]))
     return cord
+
 def rand_phi():
-    return random.uniform(0, pi)
+    return radians(random.choice(PHI))
+
 def rand_theta():
-    return random.uniform(0, 2*pi)
+    return radians(random.choice(THETA))
 
 def gen_center():
     """
@@ -189,7 +194,7 @@ def csg_op(alpha=0.4):
         alpha = 0.5
     min_r = abs(shape_1['r'] - shape_2['r'])*(1+alpha)
     max_r = shape_1['r'] + shape_1['r']
-    d = random.uniform(min_r, max_r)
+    d = round(random.uniform(min_r, max_r), 1)
     offset = sph2cart([d, rand_phi(), rand_theta()])
     translate(shape_2, offset)
     rotate(shape_1, gen_rot())
