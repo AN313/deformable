@@ -166,9 +166,8 @@ def save_combo(s1, s2):
     part2.pop('shape')
     info = {'shape_1':part1, 'shape_2':part2}
     uid = str(uuid4())
-    with open(os.path.join(SAVE_DIR, uid+'json'), 'w') as jfile:
-        json.dump(info, jfile)
-    return uid
+    jfile = json.dumps(info)
+    return jfile
 
 def translate(shape, vec3):
     shape['T'].append(vec3)
@@ -195,7 +194,7 @@ def csg_op(alpha=0.4):
     translate(shape_2, offset)
     rotate(shape_1, gen_rot())
     rotate(shape_2, gen_rot())
-    uid = save_combo(shape_1, shape_2)
+    jfile = save_combo(shape_1, shape_2)
     return shape_1['type'], shape_2['type'], uid
 
 #######################################################
@@ -341,17 +340,23 @@ for output_node in [depthFileOutput, normalFileOutput, albedoFileOutput]:
 
 
 for j in range(1):
-    obj1, obj2, uid = csg_op()
+    obj1, obj2, jfile = csg_op()
 
     stepsize = 360.0 / args.views
     rotation_mode = 'XYZ'
     for k in range(args.circles):
         cam.location = CAM_LOC[k]
+        sub_folder = "/model" + str(j)
+        SUB_DIR = op.join(CUR_DIR, subfolder)
+        if not op.exists(op.join(CUR_DIR, subfolder):
+            os.mkdir(SUB_DIR)
+        with open(op.join(CUR_DIR, subfolder, "model.json"), 'w') as jsonWriter:
+            json.dump(jfile, jsonWriter)
         for i in range(args.views):
             print("================")
             print(fp)
             print("================")
-            scene.render.filepath = fp + "/"+uid+str(j)+'_'+str(k)+'_r_{0:03d}'.format(int(i * stepsize))
+            scene.render.filepath = fp + sub_folder + "/" + str(j)+'_'+str(k)+'_r_{0:03d}'.format(int(i * stepsize))
             bpy.ops.render.render(write_still=True)  # render still
             b_empty.rotation_euler[2] += radians(stepsize)
 
