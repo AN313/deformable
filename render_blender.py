@@ -6,9 +6,6 @@
 #
 
 
-
-
-
 import bpy
 import bmesh
 
@@ -19,8 +16,6 @@ import random
 import numpy as np
 from uuid import uuid4
 from math import sin, cos, pi, radians
-
-
 
 
 #######################################################
@@ -327,7 +322,8 @@ scene.render.resolution_y = 600
 scene.render.resolution_percentage = 100
 scene.render.alpha_mode = 'TRANSPARENT'
 cam = scene.objects['Camera']
-cam.location = (0, 10, 6)
+# cam.location = (0, 10, 6)
+cam.location = (0,1,0.6)
 cam_constraint = cam.constraints.new(type='TRACK_TO')
 cam_constraint.track_axis = 'TRACK_NEGATIVE_Z'
 cam_constraint.up_axis = 'UP_Y'
@@ -345,7 +341,7 @@ for output_node in [depthFileOutput, normalFileOutput, albedoFileOutput]:
         output_node.base_path = ''
 
 for j in range(0,1):    
-    obj1, obj2 = csg_op()
+    # obj1, obj2 = csg_op()
 
     stepsize = 360.0 / args.views
     rotation_mode = 'XYZ'
