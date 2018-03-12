@@ -15,7 +15,7 @@ import json
 import random
 import numpy as np
 from uuid import uuid4
-from math import sin, cos, pi, radians
+from math import sin, cos, pi, radians, sqrt
 
 
 #######################################################
@@ -24,13 +24,10 @@ from math import sin, cos, pi, radians
 
 parser = argparse.ArgumentParser(description='Renders given obj file by rotation a camera around it.')
 
-parser.add_argument('--views', type=int, default=30,
+parser.add_argument('--views', type=int, default=8,
                     help='number of views to be rendered')
-
-# parser.add_argument('obj', type=str,
-#                     help='Path to the obj file to be rendered.')
-
-
+parser.add_argument('--circles', type=int, default=3,
+                    help="number of view circles")
 parser.add_argument('--output_folder', type=str, default='/tmp',
                     help='The path the output will be dumped to.')
 parser.add_argument('--scale', type=float, default=1,
@@ -39,13 +36,13 @@ parser.add_argument('--remove_doubles', type=bool, default=True,
                     help='Remove double vertices to improve mesh quality.')
 parser.add_argument('--edge_split', type=bool, default=True,
                     help='Adds edge split filter.')
-parser.add_argument('--depth_scale', type=float, default=1.4,
+parser.add_argument('--depth_scale', type=float, default=3.5,
                     help='Scaling that is applied to depth. Depends on size of mesh. Try out various values until you get a good result.')
 
 argv = sys.argv[sys.argv.index("--") + 1:]
 args = parser.parse_args(argv)
 
-
+CAM_LOC = [(0,10/2,-10*sqrt(3)/2), (0,10,0), (0,10/2,10*sqrt(3)/2)]
 
 #######################################################
 # Create random CSG 
@@ -181,7 +178,7 @@ def rotate(shape, vec3):
     shape['shape'].rotation_euler.y = vec3[0]
     shape['shape'].rotation_euler.z = vec3[0]
 
-def csg_op(alpha=0.2):
+def csg_op(alpha=0.4):
     shape_1 = gen_shape(random.choice(TYPE))
     shape_2 = gen_shape(random.choice(TYPE))
     bpy.ops.object.shade_smooth()
@@ -289,19 +286,23 @@ for object in bpy.context.scene.objects:
 
 # Make light just directional, disable shadows.
 lamp = bpy.data.lamps['Lamp']
-lamp.type = 'SUN'
+# lamp.type = 'HEMI'
 lamp.shadow_method = 'NOSHADOW'
 # Possibly disable specular shading:
 lamp.use_specular = False
 
 # Add another light source so stuff facing away from light is not completely dark
-bpy.ops.object.lamp_add(type='SUN')
-lamp2 = bpy.data.lamps['Sun']
-lamp2.shadow_method = 'NOSHADOW'
+bpy.ops.object.lamp_add(type='POINT')
+lamp2 = bpy.data.lamps['Point']
+# lamp2.shadow_method = 'NOSHADOW'
 lamp2.use_specular = False
-lamp2.energy = 0.15
-bpy.data.objects['Sun'].rotation_euler = bpy.data.objects['Lamp'].rotation_euler
-bpy.data.objects['Sun'].rotation_euler[0] += 180
+lamp2.energy = 1.0
+bpy.data.objects['Lamp'].location = (10, 10, 0)
+bpy.data.objects['Point'].location = (-10, -10, 0)
+
+bpy.data.worlds["World"].light_settings.use_environment_light = True
+bpy.data.objects['Point'].rotation_euler = bpy.data.objects['Lamp'].rotation_euler
+bpy.data.objects['Point'].rotation_euler[0] += 180
 
 def parent_obj_to_camera(b_camera):
     origin = (0, 0, 0)
@@ -317,21 +318,21 @@ def parent_obj_to_camera(b_camera):
 
 scene = bpy.context.scene
 
-scene.render.resolution_x = 600
-scene.render.resolution_y = 600
+scene.render.resolution_x = 244
+scene.render.resolution_y = 244
 scene.render.resolution_percentage = 100
 scene.render.alpha_mode = 'TRANSPARENT'
 cam = scene.objects['Camera']
+
 # cam.location = (0, 10, 6)
 cam.location = (0,1,0.6)
+
 cam_constraint = cam.constraints.new(type='TRACK_TO')
 cam_constraint.track_axis = 'TRACK_NEGATIVE_Z'
 cam_constraint.up_axis = 'UP_Y'
 b_empty = parent_obj_to_camera(cam)
 cam_constraint.target = b_empty
 
-# model_identifier = os.path.split(os.path.split(args.obj)[0])[1]
-# fp = os.path.join(args.output_folder, model_identifier, model_identifier)
 fp = os.path.join(args.output_folder)
 
 scene.render.image_settings.file_format = 'PNG'  # set output format to .png
@@ -341,21 +342,20 @@ for output_node in [depthFileOutput, normalFileOutput, albedoFileOutput]:
         output_node.base_path = ''
 
 for j in range(0,1):    
-    # obj1, obj2 = csg_op()
+    obj1, obj2 = csg_op()
+
 
     stepsize = 360.0 / args.views
     rotation_mode = 'XYZ'
-    for i in range(0, args.views):
-        print("================")
-        print(fp)
-        print("================")
-        scene.render.filepath = fp + "/"+ str(j)+'_r_{0:03d}'.format(int(i * stepsize))
-        # depthFileOutput.file_slots[0].path = scene.render.filepath + "_depth.png"
-        # normalFileOutput.file_slots[0].path = scene.render.filepath + "_normal.png"
-        # albedoFileOutput.file_slots[0].path = scene.render.filepath + "_albedo.png"
-        # print(cam.location )
-        bpy.ops.render.render(write_still=True)  # render still
-        b_empty.rotation_euler[2] += radians(stepsize)
+    for k in range(args.circles):
+        cam.location = CAM_LOC[k]
+        for i in range(args.views):
+            print("================")
+            print(fp)
+            print("================")
+            scene.render.filepath = fp + "/"+ str(j)+'_'+str(k)+'_r_{0:03d}'.format(int(i * stepsize))
+            bpy.ops.render.render(write_still=True)  # render still
+            b_empty.rotation_euler[2] += radians(stepsize)
 
     # delete objects to start new iteration
     for index, obj in enumerate(bpy.data.objects):
