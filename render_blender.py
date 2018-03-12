@@ -45,7 +45,7 @@ args = parser.parse_args(argv)
 CAM_LOC = [(0,10/2,-10*sqrt(3)/2), (0,10,0), (0,10/2,10*sqrt(3)/2)]
 
 #######################################################
-# Create random CSG 
+# Create random CSG                                   # 
 #######################################################
 
 CUR_DIR = os.getcwd()
@@ -57,10 +57,12 @@ bmat = bpy.data.materials
 bobj = bpy.data.objects
 bscene = bpy.context.scene
 
+##### RNN Input seqence #####
+
 C = range(-5,5)
 R = np.arange(0.5, 1., 0.1)
 H = np.arange(1., 2., 0.2)
-ROT = range(0,360,30)
+ROT = range(0,360,60)
 
 TYPE = ["sphere", "cube", "cylinder"]
 NAME = ["Basic_Sphere", "Basic_Cube", "Basic_Cylinder"]
@@ -163,8 +165,10 @@ def save_combo(s1, s2):
     part1.pop('shape')
     part2.pop('shape')
     info = {'shape_1':part1, 'shape_2':part2}
-    with open(os.path.join(SAVE_DIR, str(uuid4())+'json'), 'w') as jfile:
+    uid = str(uuid4())
+    with open(os.path.join(SAVE_DIR, uid+'json'), 'w') as jfile:
         json.dump(info, jfile)
+    return uid
 
 def translate(shape, vec3):
     shape['T'].append(vec3)
@@ -188,14 +192,11 @@ def csg_op(alpha=0.4):
     max_r = shape_1['r'] + shape_1['r']
     d = random.uniform(min_r, max_r)
     offset = sph2cart([d, rand_phi(), rand_theta()])
-    print(offset)
-    print(shape_1['r'])
-    print(shape_2['r'])
     translate(shape_2, offset)
     rotate(shape_1, gen_rot())
     rotate(shape_2, gen_rot())
-    save_combo(shape_1, shape_2)
-    return shape_1['type'], shape_2['type']
+    uid = save_combo(shape_1, shape_2)
+    return shape_1['type'], shape_2['type'], uid
 
 #######################################################
 # Set up rendering environment
@@ -340,7 +341,7 @@ for output_node in [depthFileOutput, normalFileOutput, albedoFileOutput]:
 
 
 for j in range(1):
-    obj1, obj2 = csg_op()
+    obj1, obj2, uid = csg_op()
 
     stepsize = 360.0 / args.views
     rotation_mode = 'XYZ'
@@ -350,7 +351,7 @@ for j in range(1):
             print("================")
             print(fp)
             print("================")
-            scene.render.filepath = fp + "/"+ str(j)+'_'+str(k)+'_r_{0:03d}'.format(int(i * stepsize))
+            scene.render.filepath = fp + "/"+uid+str(j)+'_'+str(k)+'_r_{0:03d}'.format(int(i * stepsize))
             bpy.ops.render.render(write_still=True)  # render still
             b_empty.rotation_euler[2] += radians(stepsize)
 
