@@ -28,7 +28,7 @@ parser.add_argument('--views', type=int, default=8,
                     help='number of views to be rendered')
 parser.add_argument('--circles', type=int, default=3,
                     help="number of view circles")
-parser.add_argument('--output_folder', type=str, default='/tmp',
+parser.add_argument('--output_folder', type=str, default='./tmp',
                     help='The path the output will be dumped to.')
 parser.add_argument('--scale', type=float, default=1,
                     help='Scaling factor applied to model. Depends on size of mesh.')
@@ -225,7 +225,6 @@ map.use_min = True
 map.min = [0]
 map.use_max = True
 map.max = [255]
-# print(rl.outputs.keys())
 links.new(rl.outputs['Z'], map.inputs[0])
 
 invert = tree.nodes.new(type="CompositorNodeInvert")
@@ -341,19 +340,25 @@ scene.render.image_settings.file_format = 'PNG'  # set output format to .png
 for output_node in [depthFileOutput, normalFileOutput, albedoFileOutput]:
         output_node.base_path = ''
 
-for j in range(0,1):    
+
+# number of model 
+for j in range(0,3):    
     obj1, obj2 = csg_op()
 
 
     stepsize = 360.0 / args.views
     rotation_mode = 'XYZ'
+
+
+    sub_folder = "/model" + str(j)
+    # number of rings
     for k in range(args.circles):
         cam.location = CAM_LOC[k]
+        # number of views 
         for i in range(args.views):
-            print("================")
-            print(fp)
-            print("================")
-            scene.render.filepath = fp + "/"+ str(j)+'_'+str(k)+'_r_{0:03d}'.format(int(i * stepsize))
+            
+
+            scene.render.filepath = fp + sub_folder + "/" + str(j)+'_'+str(k)+'_r_{0:03d}'.format(int(i * stepsize))
             bpy.ops.render.render(write_still=True)  # render still
             b_empty.rotation_euler[2] += radians(stepsize)
 
