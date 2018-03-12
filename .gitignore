@@ -3,3 +3,5 @@ data/**
 model_json/**
 tmp/**
 *.stl
+test_pic/**
+.png
