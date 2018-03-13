@@ -16,15 +16,24 @@ from torchvision.models import resnet18
 N_ITER = 0
 
 class Encoder(nn.Module):
+    '''
+        To get the embedding, simply use the network as usual, the returned
+        output would be a avgpool embedding
+    '''
     def __init__(self, model):
         self.model = model
+        self.model.eval()
         self.target_layer = self.model._modules.get('avgpool')
         self.embedding = torch.zeros(512)
         self.hook = self.target_layer.register_forward_hook(self._pullHook)
         
     def _pullHook(self, m, i, o):
         self.embedding.copy_(o.data)
-    
+   
+    def forward(self, x):
+        _ = self.model(x)
+        return self.embedding
+
     def get_embedding(self, x):
         self.model(x)
         return self.embedding
