@@ -93,8 +93,12 @@ def gen_center():
     return v
 
 def gen_rot():
-    r = [random.choice(ROT), random.choice(ROT), random.choice(ROT)]
-    return r
+    x = random.choice(ROT)
+    y = random.choice(ROT)
+    z = random.choice(ROT)
+    ind = (R.index(x)+1)+(R.index(x)+1)+(R.index(x)+1)
+    r = [x, y, z]
+    return r, ind
 
 def gen_scale():
     c = random.choice(R)
@@ -112,20 +116,25 @@ def gen_mat(name, color):
 
 def gen_shape(type, r=None, h=None):
     global COUNT
+    lable = -1
     if not r:
         r = random.choice(R)
+        scale_factor = R.index(r)+1
     if type=="cylinder" and not h:
         h = random.choice(H)
-    # generate shape object
-    if type == "sphere":
-        mesh = bpy.data.meshes.new(type)
-        shape = bpy.data.objects.new(type, mesh)
+    # generate shape object, discarding sphere, due to unable to identiry roatation
+    # if type == "sphere":
+    #    mesh = bpy.data.meshes.new(type)
+    #    shape = bpy.data.objects.new(type, mesh)
+    #    label = 0
     elif type == "cube":
         mesh = bpy.data.meshes.new(type)
         shape = bpy.data.objects.new(type, mesh)
+        label = 0
     elif type == "cylinder":
         mesh = bpy.data.meshes.new(type)
         shape = bpy.data.objects.new(type, mesh)
+        label = 90
     else:
         raise ValueError
     bscene.objects.link(shape)
@@ -133,11 +142,11 @@ def gen_shape(type, r=None, h=None):
     shape.select = True
     # fill sphere mesh to shape
     bm = bmesh.new()
-    if type == "sphere":
-        bmesh.ops.create_uvsphere(bm,
-                                  u_segments=32,
-                                  v_segments=16,
-                                  diameter=r*2)
+    # if type == "sphere":
+    #    bmesh.ops.create_uvsphere(bm,
+    #                              u_segments=32,
+    #                              v_segments=16,
+    #                              diameter=r*2)
     elif type == "cube":
         bmesh.ops.create_cube(bm, size=r*2)
     elif type == "cylinder":
@@ -155,6 +164,9 @@ def gen_shape(type, r=None, h=None):
     mat = gen_mat("material"+str(COUNT), clr)
     COUNT += 1
     shape.data.materials.append(mat)
+    # Rotate the shape
+    rot_amount, rot_factor = get_rot()
+    rotate(shape, rot_amount)
     return {'id':COUNT,
             'shape':shape,
             'type':type,
@@ -162,7 +174,8 @@ def gen_shape(type, r=None, h=None):
             'r':r,
             'h':h,
             'T':[],
-            'R':[]}
+            'R':[],
+            'label':label+scale_factor*rot_factor}
 
 def save_combo(s1, s2):
     part1 = s1
@@ -182,9 +195,9 @@ def translate(shape, vec3):
 
 def rotate(shape, vec3):
     shape['R'].append(vec3)
-    shape['shape'].rotation_euler.x = vec3[0]
-    shape['shape'].rotation_euler.y = vec3[0]
-    shape['shape'].rotation_euler.z = vec3[0]
+    shape.rotation_euler.x = vec3[0]
+    shape.rotation_euler.y = vec3[0]
+    shape.rotation_euler.z = vec3[0]
 
 def csg_op(alpha=0.4):
     shape_1 = gen_shape(random.choice(TYPE))
@@ -197,8 +210,6 @@ def csg_op(alpha=0.4):
     d = round(random.uniform(min_r, max_r), 1)
     offset = sph2cart([d, rand_phi(), rand_theta()])
     translate(shape_2, offset)
-    rotate(shape_1, gen_rot())
-    rotate(shape_2, gen_rot())
     jfile = save_combo(shape_1, shape_2)
     return shape_1['type'], shape_2['type'], uid
 
