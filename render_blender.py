@@ -63,12 +63,12 @@ bscene = bpy.context.scene
 ##### RNN Input seqence #####
 
 C = range(-5, 5)
-R = list(np.arange(0.5, 1.1, 0.1))
+R = list(np.arange(0.5, 1.0, 0.1))
 H = list(np.arange(1., 2.2, 0.2))
 ROT = range(0, 360, 120)
 PHI = range(0, 90, 30)
 THETA = range(0, 180, 30)
-D = [str(round(x, 1)) for x in np.arange(0.0, 2.1, 0.1)]
+D = [str(round(x, 1)) for x in np.arange(0.0, 2.0, 0.1)]
 
 
 TYPE = ["cube", "cylinder"]
@@ -122,7 +122,7 @@ def gen_shape(type, r=None, h=None):
     label = -1
     if not r:
         r = random.choice(R)
-        scale_factor = R.index(r)+1
+        scale_factor = R.index(r)
     if type=="cylinder" and not h:
         h = random.choice(H)
     # generate shape object, discarding sphere, due to unable to identiry roatation
