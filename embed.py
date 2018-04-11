@@ -8,8 +8,10 @@ import multiprocessing as mp
 from torch.autograd import Variable
 import tqdm
 
+# Update batch size if needed based on # of render per view
+BATCH_SIZE = 12
 DATA_DIR = os.path.join(os.getcwd(), 'data')
-encoder = Encoder(resnet18(pretrained=True), 24).cuda()
+encoder = Encoder(resnet18(pretrained=True), BATCH_SIZE).cuda()
 
 def encode_folder(folder):
     folder_mat = []
@@ -21,13 +23,12 @@ def encode_folder(folder):
             im = im.astype(np.float32)
             im = np.rollaxis(im, 2)
             folder_mat.append(im)
-    if folder_mat is not []:
+    if len(folder_mat) is BATCH_SIZE:
         folder_ims = np.stack(folder_mat)
         inputs = Variable(torch.from_numpy(folder_ims)).cuda()
         embed = encoder(inputs).cpu().numpy()
-    save_path = os.path.join(folder, 'embed.npy')
-    np.save(save_path, embed.astype(np.float32))
-    return embed
+        save_path = os.path.join(folder, 'embed.npy')
+        np.save(save_path, embed.astype(np.float32))
 
 def gather_embed():
     X = []
@@ -52,7 +53,26 @@ def gather_embed():
     np.save('valX.npy', X[div:])
     np.save('valY.npy', Y[div:])
 
+def decompose_2nd(div_size):
+    print('loading...')
+    trY = np.load('trY.npy')
+    vaY = np.load('valY.npy')
+    def helper(Y):
+        rows, _ = np.shape(Y)
+        result = np.empty((rows, 2))
+        result[:, 0] = np.floor_divide(Y[:, 2], div_size)
+        result[:, 1] = np.remainder(Y[:, 2], div_size)
+        return result
+    print('decomposing train')
+    new_trY = np.concatenate((trY[:, 0:2], helper(trY)), axis=1)
+    np.save('trY_2.npy', new_trY.astype(np.int64))
+    print('decomposing val')
+    new_vaY = np.concatenate((vaY[:, 0:2], helper(vaY)), axis=1)
+    print(np.shape(new_vaY))
+    np.save('valY_2.npy', new_vaY.astype(np.int64))
+
 if __name__ == "__main__":
-    for f in tqdm.tqdm(os.listdir(DATA_DIR)):
-        encode_folder(f)
-    gather_embed()
+    # for f in tqdm.tqdm(os.listdir(DATA_DIR)):
+    #     encode_folder(f)
+    # gather_embed()
+    decompose_2nd(72)

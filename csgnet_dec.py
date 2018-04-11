@@ -18,34 +18,38 @@ N_ITER = 0
 TBX = {
     'loss_tr' : 'data/l_train',
     'loss_va' : 'data/l_val',
-    'acc_1' : 'data/acc_1',
-    'acc_2' : 'data/acc_2',
-    'acc_3' : 'data/acc_3',
+    'acc_1' : 'data/acc_s1',
+    'acc_2' : 'data/acc_s2',
+    'acc_3' : 'data/acc_d',
+    'acc_4' : 'data/acc_rot',
     'all_acc' : 'data/all_acc',
-    'acc_1_val' : 'data/acc_1_val',
-    'acc_2_val' : 'data/acc_2_val',
-    'acc_3_val' : 'data/acc_3_val',
+    'acc_1_val' : 'data/acc_s1_val',
+    'acc_2_val' : 'data/acc_s2_val',
+    'acc_3_val' : 'data/acc_d_val',
+    'acc_4_val' : 'data/acc_rot_val',
     'all_acc_val' : 'data/all_acc_val'
 }
 
 class DeformDataLoader(data_utils.TensorDataset):
-    def __init__(self, dataX, dataY, sample=8, permute=True):
+    def __init__(self, dataX, dataY, sample=8, permute=True, angles=12):
         self.dataX = dataX
         self.dataY = dataY
         self.length = dataX.shape[0]
         self.sample = sample
         self.permute = permute
+        self.angles = angles
 
     def __getitem__(self, idx):
         if self.permute:
-            sample_ind = np.random.choice(24, self.sample, replace=False)
+            sample_ind = np.random.choice(self.angles, self.sample, replace=False)
         else:
             sample_ind = np.arange(self.sample)
         dataX = self.dataX[idx, sample_ind, ...].flatten()
         return torch.from_numpy(dataX),\
                torch.from_numpy(self.dataY[np.newaxis, idx, 0]),\
                torch.from_numpy(self.dataY[np.newaxis, idx, 1]),\
-               torch.from_numpy(self.dataY[np.newaxis, idx, 2])
+               torch.from_numpy(self.dataY[np.newaxis, idx, 2]),\
+               torch.from_numpy(self.dataY[np.newaxis, idx, 3])
 
     def __len__(self):
         return self.length
@@ -64,109 +68,99 @@ def load_dataset(x_path, y_path, batch_size=300, num_workers=2,
                                          num_workers = num_workers)
     return stock_loader
 
+class RnnUnit(nn.Module):
+    def __init__(self, input_dim, num_class, latent_dim=128, rnn_dim=2048, rnn_layer=1):
+        super(RnnUnit, self).__init__()
+        self.fc1 = nn.Linear(input_dim, latent_dim+rnn_dim)
+        self.relu1 = nn.ReLU(inplace=True)
+        self.rnn = nn.GRU(input_size=rnn_dim+latent_dim,
+                          hidden_size=rnn_dim,
+                          num_layers=rnn_layer,
+                          batch_first=True)
+        self.fc2 = nn.Linear(rnn_dim, rnn_dim)
+        self.relu2 = nn.ReLU(inplace=True)
+        self.fc3 = nn.Linear(rnn_dim, num_class)
+
+    def forward(self, x):
+        x = self.relu1(self.fc1(x))
+        x = torch.unsqueeze(x,1)
+        x, _ = self.rnn(x)
+        x = self.relu2(self.fc2(x))
+        return torch.squeeze(self.fc3(x))
+
+
 class Decoder(nn.Module):
-    def __init__(self, num_rnn_layer=1, sample=8, decompose=False):
+    def __init__(self, num_shape=270, num_rnn_layer=1, sample=8, rnn_dim=2048, 
+                 latent_dim=128, dist_class=20, rot_class=72):
         super(Decoder, self).__init__()
         self.rnn_layer = num_rnn_layer
         self.sample = sample
-        self.decompose = decompose
         # First shape
-        self.fc1 = nn.Linear(512*self.sample, 2048)
+        self.fc1 = nn.Linear(512*self.sample, rnn_dim)
         self.relu1 = nn.ReLU(inplace=True)
-        self.rnn1 = nn.GRU(input_size=2048,
-                          hidden_size=2048,
+        self.rnn1 = nn.GRU(input_size=rnn_dim,
+                          hidden_size=rnn_dim,
                           num_layers=self.rnn_layer,
                           batch_first=True)
-        self.fc2 = nn.Linear(2048, 2048)
+        self.fc2 = nn.Linear(rnn_dim, rnn_dim)
         self.relu2 = nn.ReLU(inplace=True)
-        self.fcR1 = nn.Linear(2048, 270)
-        self.softmax1 = nn.Softmax()
+        self.fcR1 = nn.Linear(rnn_dim, num_shape)      
         # Second shape
-        self.fc3 = nn.Linear(270, 128)
-        self.relu3 = nn.ReLU(inplace=True)
-        self.rnn2 = nn.GRU(input_size=2048+128,
-                          hidden_size=2048,
-                          num_layers=self.rnn_layer,
-                          batch_first=True)
-        self.fc4 = nn.Linear(2048, 2048)
-        self.relu4 = nn.ReLU(inplace=True)
-        self.fcR2 = nn.Linear(2048, 270)
-        self.softmax2 = nn.Softmax()
-        # Operation
-        self.fc5 = nn.Linear(540, 128)
-        self.relu5 = nn.ReLU(inplace=True)
-        self.rnn3 = nn.GRU(input_size=2048+128,
-                          hidden_size=2048,
-                          num_layers=self.rnn_layer,
-                          batch_first=True)
-        self.fc6 = nn.Linear(2048, 2048)
-        self.relu6 = nn.ReLU(inplace=True)
-        self.fcR3 = nn.Linear(2048, 720)
-        self.softmax3 = nn.Softmax()
-        # If decompose
-        if self.decompose:
+        self.decoder1 = RnnUnit(num_shape+rnn_dim, num_shape)
+        # distance
+        self.decoder2 = RnnUnit(num_shape*2+rnn_dim, dist_class)
+        # angles
+        self.decoder3 = RnnUnit(num_shape*2+rnn_dim+dist_class, rot_class)
             
 
     def forward(self, x):
         # First shape
         encode = self.fc1(x)
         encode = self.relu1(encode)
-        x1, h1  = self.rnn1(encode[:,None])
-        x1 = self.fc2(x1)
-        x1 = self.relu2(x1)
-        x1 = torch.squeeze(self.fcR1(x1))
-        # x1 = self.softmax1(torch.squeeze(x1))
+        x0, _  = self.rnn1(encode[:,None])
+        x0 = self.relu2(self.fc2(x0))
+        x0 = torch.squeeze(self.fcR1(x0))      # [batch x num_shape]
         # Second shape
-        h2i = self.fc3(x1)
-        h2i = self.relu3(h2i)
-        h2i = torch.cat((encode,h2i), dim=1)
-        x2, h2  = self.rnn2(h2i[:,None], h1)
-        x2 = self.fc4(x2)
-        x2= self.relu4(x2)
-        x2 = torch.squeeze(self.fcR2(x2))
-        # x2 = self.softmax2(torch.squeeze(x2))
-        # Operation
-        h3i = torch.cat((x1, x2), dim=1)
-        h3i = self.fc5(h3i)
-        h3i = self.relu5(h3i)
-        h3i = torch.cat((encode, h3i), dim=1)
-        x3, _  = self.rnn3(h3i[:,None], h2)
-        x3 = self.fc6(x3)
-        x3 = self.relu6(x3)
-        x3 = torch.squeeze(self.fcR3(x3))
-        # x3 = self.softmax3(torch.squeeze(x3))
-        return x1, x2, x3
+        x1 = torch.cat((encode,x0), dim=1)
+        x1 = self.decoder1(x1)
+        # Distance
+        x2 = torch.cat((encode, x0, x1), dim=1)
+        x2 = self.decoder2(x2)
+        # Rotation
+        x3 = torch.cat((encode, x0, x1, x2), dim=1)
+        x3 = self.decoder3(x3)
+        return x0, x1, x2, x3
 
 
 def loss_func(output, target):
     return F.cross_entropy(output, target)
 
-def loss3_func(output, target):
-    return F.cross_entropy(output, target-1)
-
 def train(dec, train_loader, optimizer, writer, log_interval=1):
     global N_ITER
     dec.train()
     bar = ProgressBar()
-    for batch_idx, (data, t1, t2, t3) in bar(enumerate(train_loader)):
+    for _, (data, t1, t2, t3, t4) in bar(enumerate(train_loader)):
         N_ITER += 1
         batch_size = data.size()[0]
-        data, t1, t2, t3 = data.cuda(), t1.cuda(), t2.cuda(), t3.cuda()
-        data, vt1, vt2, vt3 = Variable(data), Variable(t1), Variable(t2), Variable(t3)
+        data, t1, t2, t3, t4 = data.cuda(), t1.cuda(), t2.cuda(), t3.cuda(), t4.cuda()
+        data, vt1, vt2, vt3, vt4 = Variable(data), Variable(t1), Variable(t2), Variable(t3), Variable(t4)
         optimizer.zero_grad()
-        out1, out2, out3 = dec(data)
+        out1, out2, out3, out4 = dec(data)
         out1_predict = torch.max(out1.data, 1, keepdim=True)[1]
         out2_predict = torch.max(out2.data, 1, keepdim=True)[1]
         out3_predict = torch.max(out3.data, 1, keepdim=True)[1]
+        out4_predict = torch.max(out4.data, 1, keepdim=True)[1]
         
         acc1 = torch.eq(out1_predict,t1)
         acc2 = torch.eq(out2_predict,t2)
         acc3 = torch.eq(out3_predict,t3)
-        all_acc = float((acc1 * acc2 * acc3).sum())
+        acc4 = torch.eq(out4_predict,t4)
+        all_acc = float((acc1 * acc2 * acc3 * acc4).sum())
 
         loss = loss_func(out1, torch.squeeze(vt1))
         loss += loss_func(out2, torch.squeeze(vt2))
-        loss += loss3_func(out3, torch.squeeze(vt3))
+        loss += loss_func(out3, torch.squeeze(vt3))
+        loss += loss_func(out4, torch.squeeze(vt4))
         loss.backward()
         optimizer.step()
 
@@ -175,6 +169,7 @@ def train(dec, train_loader, optimizer, writer, log_interval=1):
         writer.add_scalar(TBX['acc_1'], float(acc1.sum())/batch_size, N_ITER)
         writer.add_scalar(TBX['acc_2'], float(acc2.sum())/batch_size, N_ITER)
         writer.add_scalar(TBX['acc_3'], float(acc3.sum())/batch_size, N_ITER)
+        writer.add_scalar(TBX['acc_4'], float(acc4.sum())/batch_size, N_ITER)
         writer.add_scalar(TBX['all_acc'], all_acc/batch_size, N_ITER)
 
 def validate(dec, val_loader, epoch, writer):
@@ -183,15 +178,16 @@ def validate(dec, val_loader, epoch, writer):
     acc1_t = 0
     acc2_t = 0
     acc3_t = 0
+    acc4_t = 0
     all_acc = 0
-    for data, t1, t2, t3 in val_loader:
-        batch_size = data.size()[0]
-        data, t1, t2, t3 = data.cuda(), t1.cuda(), t2.cuda(), t3.cuda()
-        data, vt1, vt2, vt3 = Variable(data), Variable(t1), Variable(t2), Variable(t3)
-        out1, out2, out3 = dec(data)
+    for data, t1, t2, t3, t4 in val_loader:
+        data, t1, t2, t3, t4 = data.cuda(), t1.cuda(), t2.cuda(), t3.cuda(), t4.cuda()
+        data, vt1, vt2, vt3, vt4 = Variable(data), Variable(t1), Variable(t2), Variable(t3), Variable(t4)
+        out1, out2, out3, out4 = dec(data)
         out1_predict = torch.max(out1.data, 1, keepdim=True)[1]
         out2_predict = torch.max(out2.data, 1, keepdim=True)[1]
         out3_predict = torch.max(out3.data, 1, keepdim=True)[1]
+        out4_predict = torch.max(out4.data, 1, keepdim=True)[1]
 
         acc1 = torch.eq(out1_predict,t1)
         acc1_t += acc1.sum()
@@ -199,11 +195,14 @@ def validate(dec, val_loader, epoch, writer):
         acc2_t += acc2.sum()
         acc3 = torch.eq(out3_predict,t3)
         acc3_t += acc3.sum()
-        all_acc += (acc1 * acc2 * acc3).sum()
+        acc4 = torch.eq(out4_predict,t4)
+        acc4_t += acc4.sum()
+        all_acc += (acc1 * acc2 * acc3 * acc4).sum()
 
         test_loss += loss_func(out1, torch.squeeze(vt1))
         test_loss += loss_func(out2, torch.squeeze(vt2))
         test_loss += loss_func(out3, torch.squeeze(vt3))
+        test_loss += loss_func(out4, torch.squeeze(vt4))
 
     val_size = len(val_loader.dataset)
     avg_loss = test_loss/val_size
@@ -211,6 +210,7 @@ def validate(dec, val_loader, epoch, writer):
     writer.add_scalar(TBX['acc_1_val'], float(acc1_t)/val_size, N_ITER)
     writer.add_scalar(TBX['acc_2_val'], float(acc2_t)/val_size, N_ITER)
     writer.add_scalar(TBX['acc_3_val'], float(acc3_t)/val_size, N_ITER)
+    writer.add_scalar(TBX['acc_4_val'], float(acc4_t)/val_size, N_ITER)
     writer.add_scalar(TBX['all_acc_val'], float(all_acc)/val_size, N_ITER)
     return avg_loss.data[0]
 
@@ -247,9 +247,9 @@ if __name__ == "__main__":
     if not os.path.exists(log_dir):
         os.mkdir(log_dir)
 
-    train_loader = load_dataset('trX.npy', 'trY.npy', 
+    train_loader = load_dataset('trX.npy', 'trY_2.npy', 
                                 batch_size=args.batch_size, permute=args.permute)
-    val_loader = load_dataset('valX.npy', 'valY.npy', batch_size=args.batch_size)
+    val_loader = load_dataset('valX.npy', 'valY_2.npy', batch_size=args.batch_size)
 
     decoder = Decoder(num_rnn_layer=args.rnn_layer).cuda()
 
@@ -259,7 +259,7 @@ if __name__ == "__main__":
     elif args.optimizer == "sgd":
         optimizer = optim.SGD(decoder.parameters(), lr=args.lr, momentum=0.9,
                               weight_decay=args.weight_decay, nesterov=True)
-        drop_interval = args.epochs / 5
+        drop_interval = 20
         decay = lambda epoch: args.lr * math.pow(0.5, math.floor(epoch/drop_interval))
         scheduler = optim.lr_scheduler.LambdaLR(optimizer, decay)
     else:

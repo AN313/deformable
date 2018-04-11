@@ -15,6 +15,7 @@ import os.path as op
 import json
 import random
 import numpy as np
+
 from uuid import uuid4
 from math import sin, cos, pi, radians, sqrt, radians
 
@@ -66,8 +67,8 @@ C = range(-5, 5)
 R = list(np.arange(0.5, 1.0, 0.1))
 H = list(np.arange(1., 2.2, 0.2))
 ROT = range(0, 360, 120)
-PHI = range(0, 90, 30)
-THETA = range(0, 180, 30)
+PHI = range(0, 180, 30)
+THETA = range(0, 360, 30)
 D = [str(round(x, 1)) for x in np.arange(0.0, 2.0, 0.1)]
 
 
@@ -101,10 +102,11 @@ def gen_center():
     return v
 
 def gen_rot():
+    step = len(ROT)
     x = random.choice(ROT)
     y = random.choice(ROT)
     z = random.choice(ROT)
-    ind = (ROT.index(x)*9)+(ROT.index(x)*3)+(ROT.index(x)+1)
+    ind = (ROT.index(x)*step*step)+(ROT.index(x)*step)+(ROT.index(x))
     r = [x, y, z]
     return r, ind
 
@@ -125,11 +127,6 @@ def gen_shape(type, r=None, h=None):
         scale_factor = R.index(r)
     if type=="cylinder" and not h:
         h = random.choice(H)
-    # generate shape object, discarding sphere, due to unable to identiry roatation
-    # if type == "sphere":
-    #    mesh = bpy.data.meshes.new(type)
-    #    shape = bpy.data.objects.new(type, mesh)
-    #    label = 0
     if type == "cube":
         mesh = bpy.data.meshes.new(type)
         shape = bpy.data.objects.new(type, mesh)
@@ -145,11 +142,6 @@ def gen_shape(type, r=None, h=None):
     shape.select = True
     # fill mesh to shape
     bm = bmesh.new()
-    # if type == "sphere":
-    #    bmesh.ops.create_uvsphere(bm,
-    #                              u_segments=32,
-    #                              v_segments=16,
-    #                              diameter=r*2)
     if type == "cube":
         bmesh.ops.create_cube(bm, size=r*2)
     elif type == "cylinder":
@@ -217,7 +209,7 @@ def csg_op(alpha=0.4):
     # Get rotation
     phi, ind_p = rand_phi()
     theta, ind_t = rand_theta()
-    t_label = ind_d*36 + ind_p*6 + ind_t+1
+    t_label = ind_d*len(THETA)*len(PHI) + ind_p*len(THETA) + ind_t
     offset = sph2cart([d, phi, theta])
     translate(shape_2, offset)
     jfile, label = save_combo(shape_1, shape_2, t_label)
@@ -364,10 +356,12 @@ scene.render.image_settings.file_format = 'PNG'  # set output format to .png
 
 
 for output_node in [depthFileOutput, normalFileOutput, albedoFileOutput]:
-        output_node.base_path = ''
-
+    output_node.base_path = ''
 
 for j in range(args.models):
+    print('-----------------')
+    print(j)
+    print('-----------------')
     obj1, obj2, uid, jfile, label = csg_op()
     stepsize = 360.0 / args.views
     rotation_mode = 'XYZ'
