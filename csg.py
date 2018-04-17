@@ -150,6 +150,24 @@ def save_combo(s1, s2, t_label):
     jfile = json.dumps(info)
     return jfile, label
 
+###################
+def save_combox(slist, t_label_list):
+    info = {}
+    label_list = []
+    for i, s in enumerate(slist):
+        part = s
+        part.pop('shape')
+        key = 'shape_'+str(i+1)
+        info[key] = part
+        label_list.append(s['label'])
+    # numpy label
+    for t_label in t_label_list:
+        label_list.append(t_label)
+    label = np.asarray(label_list)
+    jfile = json.dumps(info)
+    return jfile, label
+###################
+
 def translate(shape, vec3):
     shape['T'].append(vec3)
     shape['shape'].location.x += vec3[0]
@@ -183,37 +201,35 @@ def csg_op(alpha=0.4):
     return shape_1['type'], shape_2['type'], uid, jfile, label
 
 
-def csg_op(alpha=0.4):
+def csg_op_x(alpha=0.4, shape_num=2):
     uid = str(uuid4())
-
+    slist = []
+    t_label_list = []
+    type_list = []
+    # the main shape first 
     shape_1 = gen_shape(random.choice(TYPE))
-    shape_2 = gen_shape(random.choice(TYPE))
-    shape_3 = gen_shape(random.choice(TYPE))
-
+    slist.append(shape_1)
+    type_list.append(shape_1['type'])
     bpy.ops.object.shade_smooth()
-    if shape_1['type'] == "cube" or shape_2['type'] == "cube" or shape_3['type']=='cube':
-        alpha = 0.5
-
-    # Translate in spherical coord, first get distance
-    min_r = abs(shape_1['r'] - shape_2['r'])*(1+alpha)
     max_r = shape_1['r'] + shape_1['r']
-    d = round(random.uniform(min_r, max_r),1)
-    ind_d1 = D.index(str(round(d,1)))
-    # Get rotation
-    phi1, ind_p1 = rand_phi()
-    theta1, ind_t1 = rand_theta()
+    # appending other shapes
+    for _ in xrange(shape_num-1):
+        shape = gen_shape(random.choice(TYPE))
+        slist.append(shape)
+        type_list.append(shape['type'])
+        if shape_1['type'] == "cube" or shape['type'] == "cube":
+            alpha = 0.5
+        # Translate in spherical coord, first get distance
+        min_r = abs(shape_1['r'] - shape['r'])*(1+alpha)
+        d = round(random.uniform(min_r, max_r),1)
+        ind_d = D.index(str(round(d,1)))
+        # Get rotation
+        phi, ind_p = rand_phi()
+        theta, ind_t = rand_theta()
+        t_label = ind_d*len(THETA)*len(PHI) + ind_p*len(THETA) + ind_t
+        t_label_list.append(t_label)
+        offset = sph2cart([d, phi, theta])
+        translate(shape, offset)
 
-    min_r2 = abs(shape_1['r'] - shape_3['r'])*(1+alpha)
-    # max_r = shape_1['r'] + shape_1['r']
-    d = round(random.uniform(min_r2, max_r),1)
-    ind_d2 = D.index(str(round(d,1)))
-    # Get rotation
-    phi2, ind_p2 = rand_phi()
-    theta2, ind_t2 = rand_theta()
-    
-
-    t_label = ind_d*len(THETA)*len(PHI) + ind_p*len(THETA) + ind_t
-    offset = sph2cart([d, phi, theta])
-    translate(shape_2, offset)
-    jfile, label = save_combo(shape_1, shape_2, t_label)
-    return shape_1['type'], shape_2['type'], uid, jfile, label
+    jfile, label = save_combox(slist, t_label_list)
+    return type_list, uid, jfile, label

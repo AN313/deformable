@@ -20,6 +20,8 @@ import csg
 from uuid import uuid4
 from math import sin, cos, pi, radians, sqrt, radians
 
+CAM_LOC = [(0,10/2,-10*sqrt(3)/2), (0,10,0), (0,10/2,10*sqrt(3)/2)]
+CUR_DIR = os.getcwd()
 
 #######################################################
 # Take input arguments
@@ -183,6 +185,8 @@ cam_constraint.up_axis = 'UP_Y'
 b_empty = parent_obj_to_camera(cam)
 cam_constraint.target = b_empty
 
+
+CUR_DIR=os.getcwd()###?
 fp = os.path.join(CUR_DIR, args.output_folder)
 if not op.exists(fp):
     os.mkdir(fp)
@@ -197,7 +201,8 @@ for j in range(args.models):
     print('-----------------')
     print(j)
     print('-----------------')
-    obj1, obj2, uid, jfile, label = csg.csg_op()
+    # add shape
+    obj_list, uid, jfile, label = csg.csg_op_x()
     stepsize = 360.0 / args.views
     rotation_mode = 'XYZ'
     SUB_DIR = op.join(fp, uid)
@@ -223,3 +228,5 @@ for j in range(args.models):
             obj.select = True
 
     bpy.ops.object.delete()
+
+
