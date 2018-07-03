@@ -11,7 +11,6 @@ import os.path as op
 import json
 import random
 import numpy as np
-# import csg
 
 from uuid import uuid4
 from math import sin, cos, pi, radians, sqrt, radians

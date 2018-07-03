@@ -2,6 +2,8 @@ import torch
 from torch import nn
 from torchvision.models import resnet18
 
+# Model with a hook at the avgpool layer of a resnet
+
 class Encoder(nn.Module):
     '''
         To get the embedding, simply use the network as usual, the returned
