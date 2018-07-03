@@ -2,7 +2,6 @@
 # - create csg from label 
 # - render resulted csg 
 
-
 import bpy
 import bmesh
 
@@ -18,6 +17,7 @@ from uuid import uuid4
 from math import sin, cos, pi, radians, sqrt, radians
 
 
+# Setting constant range
 C = range(-5, 5)
 R = list(np.arange(0.5, 1.0, 0.1))
 H = list(np.arange(1., 2.2, 0.2))
@@ -37,10 +37,7 @@ bmat = bpy.data.materials
 bobj = bpy.data.objects
 bscene = bpy.context.scene
 
-# read valY.npy
-# results = np.load('valY.npy')
-# result = results[0]
-
+# Get object shape information from the label
 def get_shape_info(num):
     step = len(ROT)
     shape = int(num/135)
@@ -54,16 +51,14 @@ def get_shape_info(num):
         s = 'cube'
     else:
         s = 'cylinder'
-    print(x)
-    print(y)
-    print(z)
     return s, scale_factor, rot_factor, x, y, z
 
-    
+# Get object rotation info from the label
 def get_rotation_info(num):
     ind_p = int(num/len(THETA))
     ind_t = int(int(num)%int(len(THETA)))
     return ind_p, ind_t
+
 
 def translate(shape, vec3):
     shape['T'].append(vec3)
@@ -76,6 +71,8 @@ def rotate(shape, vec3):
     shape.rotation_euler.y = vec3[0]
     shape.rotation_euler.z = vec3[0]
 
+
+# Generating random color
 def gen_color():
     c = (random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1))
     return c
@@ -93,6 +90,8 @@ def sph2cart(s):
             s[0]*cos(s[1]))
     return cord
 
+
+# Generate shape from the label
 def gen_shape(type, scale_factor, x, y, z):
     global COUNT
     r = R[scale_factor]
@@ -157,7 +156,6 @@ def render_from_label(label):
         stype, scale_factor, rot_factor, x, y, z = get_shape_info(label[i])
         print(label[i])
         shape = gen_shape(stype, scale_factor, x, y, z)
-        # t_labels TODO get correct j for transform
         d=label[num_shape+i-1]
         d = float(D[d])
 
@@ -170,7 +168,7 @@ def render_from_label(label):
         translate(shape, offset)
 
 
-# labels = np.load('trY_2.npy')
-label = np.array([121,50,4,19])
-
-render_from_label(label)
+# uncomment for rendering prediction
+# labels = np.load('trY_2.npy')     # load from label file
+# label = np.array([121,50,4,19])   # set single label
+# render_from_label(label)

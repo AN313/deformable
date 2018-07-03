@@ -118,6 +118,7 @@ bpy.ops.object.delete()
 
 
 ##############################################
+# uncomment for importing stl or obj files
 # bpy.ops.import_mesh.stl(filepath=args.obj)
 # bpy.ops.import_scene.obj(filepath=args.obj)
 ##############################################
@@ -186,7 +187,7 @@ b_empty = parent_obj_to_camera(cam)
 cam_constraint.target = b_empty
 
 
-CUR_DIR=os.getcwd()###?
+CUR_DIR=os.getcwd()
 fp = os.path.join(CUR_DIR, args.output_folder)
 if not op.exists(fp):
     os.mkdir(fp)
@@ -198,9 +199,6 @@ for output_node in [depthFileOutput, normalFileOutput, albedoFileOutput]:
     output_node.base_path = ''
 
 for j in range(args.models):
-    print('-----------------')
-    print(j)
-    print('-----------------')
     # add shape
     obj_list, uid, jfile, label = csg.csg_op_x()
     stepsize = 360.0 / args.views
@@ -215,9 +213,6 @@ for j in range(args.models):
     for k in range(args.circles):
         cam.location = CAM_LOC[k]
         for i in range(args.views):
-            print("================")
-            print(fp)
-            print("================")
             scene.render.filepath = SUB_DIR + "/" + str(j)+'_'+str(k)+'_r_{0:03d}'.format(int(i * stepsize))
             bpy.ops.render.render(write_still=True)  # render still
             b_empty.rotation_euler[2] += radians(stepsize)

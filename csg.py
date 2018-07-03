@@ -11,32 +11,36 @@ import numpy as np
 from uuid import uuid4
 from math import sin, cos, pi, radians, sqrt, radians
 
+###############################################################
+# Package for generating Constructive Solid Geomewtry         #
+# Requires Blender installation for bpy packages.             #
+# The functions in the package is called in render_blender.py # 
+###############################################################
 
+#######################################################
+# Defining constants                                  # 
+#######################################################
 
+# Defining initial camera locations
 CAM_LOC = [(0,10/2,-10*sqrt(3)/2), (0,10,0), (0,10/2,10*sqrt(3)/2)]
-
-#######################################################
-# Create random CSG                                   # 
-#######################################################
-
+# Defining directories
 CUR_DIR = os.getcwd()
 SAVE_DIR = os.path.join(CUR_DIR, "model_json")
 if not os.path.exists(SAVE_DIR):
     os.mkdir(SAVE_DIR)
-
+# Blender shortcuts
 bmat = bpy.data.materials
 bobj = bpy.data.objects
 bscene = bpy.context.scene
 
-##### RNN Input seqence #####
-
-C = range(-5, 5)
-R = list(np.arange(0.5, 1.0, 0.1))
-H = list(np.arange(1., 2.2, 0.2))
-ROT = range(0, 360, 120)
+# Shape parameters
+C = range(-5, 5) # Center points
+R = list(np.arange(0.5, 1.0, 0.1)) # Radius
+H = list(np.arange(1., 2.2, 0.2)) # Height for cylinder
+ROT = range(0, 360, 120) 
 PHI = range(0, 180, 30)
 THETA = range(0, 360, 30)
-D = [str(round(x, 1)) for x in np.arange(0.0, 2.0, 0.1)]
+D = [str(round(x, 1)) for x in np.arange(0.0, 2.0, 0.1)] # Translation distance
 
 
 TYPE = ["cube", "cylinder"]
@@ -44,6 +48,7 @@ NAME = ["Basic_Sphere", "Basic_Cube", "Basic_Cylinder"]
 
 COUNT = 0
 
+# Spherical to cartian coordinates
 def sph2cart(s):
     # Assuming sphe_cord is [r, phi, theta]
     cord = (s[0]*sin(s[1])*cos(s[2]),
@@ -51,6 +56,7 @@ def sph2cart(s):
             s[0]*cos(s[1]))
     return cord
 
+###### Generate random parameters #####
 def rand_phi():
     ang = random.choice(PHI)
     ind = PHI.index(ang)
@@ -86,6 +92,7 @@ def gen_mat(name, color):
     mat.diffuse_color = color
     return mat
 
+# Generating shape with provided type
 def gen_shape(type, r=None, h=None):
     global COUNT
     label = -1
@@ -139,6 +146,7 @@ def gen_shape(type, r=None, h=None):
             'R':[rot_amount],
             'label':label+scale_factor*27+rot_factor}
 
+# Save two shape dictionaries with a json dump
 def save_combo(s1, s2, t_label):
     part1 = s1
     part2 = s2
@@ -150,7 +158,6 @@ def save_combo(s1, s2, t_label):
     jfile = json.dumps(info)
     return jfile, label
 
-###################
 def save_combox(slist, t_label_list):
     info = {}
     label_list = []
@@ -166,7 +173,6 @@ def save_combox(slist, t_label_list):
     label = np.asarray(label_list)
     jfile = json.dumps(info)
     return jfile, label
-###################
 
 def translate(shape, vec3):
     shape['T'].append(vec3)
