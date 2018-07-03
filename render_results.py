@@ -12,7 +12,6 @@ import os.path as op
 import json
 import random
 import numpy as np
-# import csg
 
 from uuid import uuid4
 from math import sin, cos, pi, radians, sqrt, radians
@@ -36,10 +35,6 @@ COUNT = 0
 bmat = bpy.data.materials
 bobj = bpy.data.objects
 bscene = bpy.context.scene
-
-# read valY.npy
-# results = np.load('valY.npy')
-# result = results[0]
 
 def get_shape_info(num):
     step = len(ROT)

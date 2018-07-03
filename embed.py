@@ -1,5 +1,5 @@
 import torch
-from torchvision.models import resnet18
+from torchvision.models import resnet52
 import numpy as np
 import os
 from resnet_embed import Encoder
@@ -7,12 +7,16 @@ import cv2
 import multiprocessing as mp
 from torch.autograd import Variable
 import tqdm
+###################################################
+# Create ResNet embedding for the rendered images #
+###################################################
 
-# Update batch size if needed based on # of render per view
-BATCH_SIZE = 12
+
+BATCH_SIZE = 12 # Update batch size if needed based on # of render per view
 DATA_DIR = os.path.join(os.getcwd(), 'data')
-encoder = Encoder(resnet18(pretrained=True), BATCH_SIZE).cuda()
+encoder = Encoder(resnet52(pretrained=True), BATCH_SIZE).cuda()
 
+# Function to encode a given folder's png files
 def encode_folder(folder):
     folder_mat = []
     folder = os.path.join(DATA_DIR, folder)
@@ -30,6 +34,7 @@ def encode_folder(folder):
         save_path = os.path.join(folder, 'embed.npy')
         np.save(save_path, embed.astype(np.float32))
 
+# Concatenate the folders' npy arrays
 def gather_embed():
     X = []
     Y = []
@@ -53,6 +58,7 @@ def gather_embed():
     np.save('valX.npy', X[div:])
     np.save('valY.npy', Y[div:])
 
+# Decompose labels into different
 def decompose_2nd(div_size):
     print('loading...')
     trY = np.load('trY.npy')
@@ -72,7 +78,7 @@ def decompose_2nd(div_size):
     np.save('valY_2.npy', new_vaY.astype(np.int64))
 
 if __name__ == "__main__":
-    # for f in tqdm.tqdm(os.listdir(DATA_DIR)):
-    #     encode_folder(f)
-    # gather_embed()
+    for f in tqdm.tqdm(os.listdir(DATA_DIR)):
+        encode_folder(f)
+    gather_embed()
     decompose_2nd(72)
